@@ -43,9 +43,9 @@ def test_load_codebase_rejects_file_paths(tmp_path):
     """Only directories should be accepted as codebase roots."""
     app = create_app()
     client = TestClient(app)
-    target = config.WORKSPACE_ROOT / "README.md"
+    target = "README.md"
 
-    response = client.post("/api/codebase/load", params={"path": str(target)})
+    response = client.post("/api/codebase/load", params={"path": target})
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Path must be a directory"
@@ -55,14 +55,26 @@ def test_load_codebase_rejects_paths_outside_workspace(tmp_path):
     """The API should reject paths outside the configured workspace."""
     app = create_app()
     client = TestClient(app)
-    outside_dir = tmp_path / "outside-project"
-    outside_dir.mkdir()
 
     response = client.post(
         "/api/codebase/load",
-        params={"path": str(outside_dir)},
+        params={"path": "../outside-project"},
     )
 
     assert response.status_code == 403
     detail = response.json()["detail"]
     assert "workspace root" in detail
+
+
+def test_load_codebase_rejects_absolute_paths():
+    """The API should only accept workspace-relative codebase paths."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/codebase/load",
+        params={"path": str(config.WORKSPACE_ROOT)},
+    )
+
+    assert response.status_code == 400
+    assert "relative" in response.json()["detail"]

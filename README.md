@@ -109,6 +109,7 @@ Full OpenAPI docs at: http://localhost:8000/docs
 - Codebase loading is limited to `WORKSPACE_ROOT` so the web API cannot browse arbitrary directories by default.
 - The web server now binds to `127.0.0.1` by default.
 - Browser access is restricted to local origins unless you explicitly expand `WEB_ALLOWED_ORIGINS`.
+- The `/api/codebase/load` endpoint accepts workspace-relative paths only.
 
 If you need network access from another machine or browser origin, update `.env` intentionally rather than using broad wildcard settings.
 
@@ -186,6 +187,8 @@ WEB_PORT=8000
 WEB_ALLOWED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
 WORKSPACE_ROOT=.
 ```
+
+When using the web API, pass codebase paths relative to `WORKSPACE_ROOT` (for example `src` or `tests`).
 
 ### Batch Operations
 ```bash

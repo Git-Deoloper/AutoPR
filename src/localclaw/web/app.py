@@ -79,6 +79,30 @@ def create_app() -> FastAPI:
 
     # Routes
 
+    def resolve_workspace_path(path: str) -> Path:
+        """Resolve a relative path inside the configured workspace root."""
+        requested_path = Path(path).expanduser()
+        if requested_path.is_absolute():
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Path must be relative to the configured workspace root"
+                ),
+            )
+
+        target_path = (config.WORKSPACE_ROOT / requested_path).resolve()
+        try:
+            target_path.relative_to(config.WORKSPACE_ROOT)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Path must stay inside the configured workspace root: "
+                    f"{config.WORKSPACE_ROOT}"
+                ),
+            ) from exc
+        return target_path
+
     @app.get("/")
     async def root():
         """Root endpoint"""
@@ -233,23 +257,12 @@ def create_app() -> FastAPI:
         nonlocal codebase_reader, current_codebase_path
 
         try:
-            target_path = Path(path).expanduser().resolve()
+            target_path = resolve_workspace_path(path)
             if not target_path.exists():
                 raise HTTPException(
                     status_code=404,
                     detail="Path does not exist",
                 )
-
-            try:
-                target_path.relative_to(config.WORKSPACE_ROOT)
-            except ValueError as exc:
-                raise HTTPException(
-                    status_code=403,
-                    detail=(
-                        "Path must stay inside the configured workspace root: "
-                        f"{config.WORKSPACE_ROOT}"
-                    ),
-                ) from exc
 
             if not target_path.is_dir():
                 raise HTTPException(
