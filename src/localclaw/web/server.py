@@ -2,21 +2,33 @@
 
 import click
 from rich.console import Console
-from localclaw.web.app import create_app, run_server
+
+from localclaw.config import config
+from localclaw.web.app import run_server
 
 console = Console()
 
 
 @click.command()
-@click.option("--host", "-h", default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)")
-@click.option("--port", "-p", default=8000, type=int, help="Port to run on (default: 8000)")
+@click.option(
+    "--host",
+    default=config.WEB_HOST,
+    help=f"Host to bind to (default: {config.WEB_HOST})",
+)
+@click.option(
+    "--port",
+    "-p",
+    default=config.WEB_PORT,
+    type=int,
+    help=f"Port to run on (default: {config.WEB_PORT})",
+)
 @click.option("--reload", is_flag=True, help="Auto-reload on code changes")
 def server(host: str, port: int, reload: bool):
     """Start LocalClaw web server"""
-    console.print(f"[bold cyan]🚀 Starting LocalClaw Web UI[/bold cyan]")
+    console.print("[bold cyan]🚀 Starting LocalClaw Web UI[/bold cyan]")
     console.print(f"[yellow]Server:[/yellow] http://{host}:{port}")
     console.print(f"[yellow]API:[/yellow] http://{host}:{port}/docs\n")
-    
+
     run_server(host=host, port=port, reload=reload)
 
 

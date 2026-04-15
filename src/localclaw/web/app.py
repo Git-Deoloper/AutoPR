@@ -1,17 +1,14 @@
-"""FastAPI web application for LocalClaw"""
+"""FastAPI web application for LocalClaw."""
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
-from fastapi.responses import JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, List
-import os
-from pathlib import Path
-import json
 
+from localclaw.config import config
 from localclaw.core.codebase import CodebaseReader
-from localclaw.core.file_handler import FileHandler
 from localclaw.llm.ollama_client import OllamaClient
 
 
@@ -60,34 +57,78 @@ class ChatMessage(BaseModel):
 
 def create_app() -> FastAPI:
     """Create and configure FastAPI application"""
-    
+
     app = FastAPI(
         title="LocalClaw",
         description="A fully local, open-source AI code agent",
-        version="0.1.0"
+        version="0.1.0",
     )
-    
+
     # Add CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=config.WEB_ALLOWED_ORIGINS,
+        allow_credentials=config.WEB_ALLOW_CREDENTIALS,
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    
+
     # Global state
     codebase_reader = None
     current_codebase_path = None
-    
+
     # Routes
-    
+
+    def resolve_workspace_path(path: str) -> Path:
+        """Resolve a relative path inside the configured workspace root."""
+        normalized_path = path.replace("\\", "/").strip()
+        if normalized_path in {"", "."}:
+            return config.WORKSPACE_ROOT
+
+        if normalized_path.startswith(("/", "~")):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Path must be relative to the configured workspace root"
+                ),
+            )
+
+        parts = [
+            part
+            for part in normalized_path.split("/")
+            if part and part != "."
+        ]
+        if parts and parts[0].endswith(":"):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Path must be relative to the configured workspace root"
+                ),
+            )
+
+        if any(part == ".." for part in parts):
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Path must stay inside the configured workspace root: "
+                    f"{config.WORKSPACE_ROOT}"
+                ),
+            )
+
+        target_path = config.WORKSPACE_ROOT
+        for part in parts:
+            target_path /= part
+
+        target_path = target_path.resolve()
+        return target_path
+
     @app.get("/")
     async def root():
         """Root endpoint"""
         return {
             "message": "LocalClaw API",
             "version": "0.1.0",
+            "workspace_root": str(config.WORKSPACE_ROOT),
             "endpoints": {
                 "analyze": "/api/analyze",
                 "fix": "/api/fix",
@@ -97,138 +138,194 @@ def create_app() -> FastAPI:
                 "ollama-models": "/api/ollama/models",
             }
         }
-    
+
     # Ollama endpoints
-    
+
     @app.get("/api/ollama/status")
     async def ollama_status():
         """Check if Ollama is running"""
-        client = OllamaClient()
+        client = OllamaClient(base_url=config.OLLAMA_BASE_URL)
         return {
             "running": client.is_running(),
-            "base_url": client.base_url
+            "base_url": client.base_url,
         }
-    
+
     @app.get("/api/ollama/models")
     async def ollama_models():
         """Get available Ollama models"""
-        client = OllamaClient()
+        client = OllamaClient(base_url=config.OLLAMA_BASE_URL)
         try:
             models = client.get_available_models()
             return {
                 "models": models,
-                "count": len(models)
+                "count": len(models),
             }
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     # Code analysis endpoints
-    
+
     @app.post("/api/analyze")
     async def analyze(request: AnalysisRequest):
         """Analyze code"""
         try:
-            client = OllamaClient(model=request.model)
-            
+            client = OllamaClient(
+                base_url=config.OLLAMA_BASE_URL,
+                model=request.model or config.OLLAMA_DEFAULT_MODEL,
+            )
+
             if not client.is_running():
                 raise HTTPException(
                     status_code=503,
-                    detail="Ollama is not running"
+                    detail="Ollama is not running",
                 )
-            
-            result = client.analyze_code(request.code, request.language)
+
+            result = client.analyze_code(
+                request.code,
+                request.language or "python",
+            )
             return {"result": result}
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     @app.post("/api/fix")
     async def fix(request: FixRequest):
         """Fix code"""
         try:
-            client = OllamaClient(model=request.model)
-            
+            client = OllamaClient(
+                base_url=config.OLLAMA_BASE_URL,
+                model=request.model or config.OLLAMA_DEFAULT_MODEL,
+            )
+
             if not client.is_running():
                 raise HTTPException(
                     status_code=503,
-                    detail="Ollama is not running"
+                    detail="Ollama is not running",
                 )
-            
-            result = client.fix_code(request.code, request.issue, request.language)
+
+            result = client.fix_code(
+                request.code,
+                request.issue,
+                request.language or "python",
+            )
             return {"result": result}
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     @app.post("/api/explain")
     async def explain(request: ExplanationRequest):
         """Explain code"""
         try:
-            client = OllamaClient(model=request.model)
-            
+            client = OllamaClient(
+                base_url=config.OLLAMA_BASE_URL,
+                model=request.model or config.OLLAMA_DEFAULT_MODEL,
+            )
+
             if not client.is_running():
                 raise HTTPException(
                     status_code=503,
-                    detail="Ollama is not running"
+                    detail="Ollama is not running",
                 )
-            
-            result = client.explain_code(request.code, request.language)
+
+            result = client.explain_code(
+                request.code,
+                request.language or "python",
+            )
             return {"result": result}
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     @app.post("/api/refactor")
     async def refactor(request: RefactoringRequest):
         """Suggest refactoring"""
         try:
-            client = OllamaClient(model=request.model)
-            
+            client = OllamaClient(
+                base_url=config.OLLAMA_BASE_URL,
+                model=request.model or config.OLLAMA_DEFAULT_MODEL,
+            )
+
             if not client.is_running():
                 raise HTTPException(
                     status_code=503,
-                    detail="Ollama is not running"
+                    detail="Ollama is not running",
                 )
-            
-            result = client.suggest_refactoring(request.code, request.language)
+
+            result = client.suggest_refactoring(
+                request.code,
+                request.language or "python",
+            )
             return {"result": result}
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     # Codebase endpoints
-    
+
     @app.post("/api/codebase/load")
     async def load_codebase(path: str):
         """Load a codebase"""
         nonlocal codebase_reader, current_codebase_path
-        
+
         try:
-            codebase_reader = CodebaseReader(path)
-            files = codebase_reader.read_codebase()
-            current_codebase_path = path
+            target_path = resolve_workspace_path(path)
+            if not target_path.exists():
+                raise HTTPException(
+                    status_code=404,
+                    detail="Path does not exist",
+                )
+
+            if not target_path.is_dir():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Path must be a directory",
+                )
+
+            codebase_reader = CodebaseReader(
+                str(target_path),
+                max_file_size=config.MAX_FILE_SIZE,
+            )
+            codebase_reader.read_codebase()
+            current_codebase_path = str(target_path)
             stats = codebase_reader.get_stats()
-            
+
             return {
-                "path": path,
-                "files": stats['total_files'],
-                "lines": stats['total_lines'],
-                "stats": stats
+                "path": current_codebase_path,
+                "files": stats["total_files"],
+                "lines": stats["total_lines"],
+                "stats": stats,
             }
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
-    
+
     @app.get("/api/codebase/summary")
     async def codebase_summary():
         """Get loaded codebase summary"""
         if not codebase_reader:
             raise HTTPException(status_code=400, detail="No codebase loaded")
-        
+
         return {"summary": codebase_reader.get_summary()}
-    
+
     @app.get("/api/codebase/files")
-    async def codebase_files(skip: int = 0, limit: int = 50):
+    async def codebase_files(
+        skip: int = Query(0, ge=0),
+        limit: int = Query(50, ge=1, le=200),
+    ):
         """Get files from loaded codebase"""
         if not codebase_reader:
             raise HTTPException(status_code=400, detail="No codebase loaded")
-        
-        files = codebase_reader.files[skip:skip+limit]
+
+        files = codebase_reader.files[skip:skip + limit]
         return {
             "files": [
                 {
@@ -241,59 +338,68 @@ def create_app() -> FastAPI:
             ],
             "total": len(codebase_reader.files),
             "skip": skip,
-            "limit": limit
+            "limit": limit,
         }
-    
+
     @app.get("/api/codebase/file")
     async def codebase_file(path: str):
         """Get a specific file from codebase"""
         if not codebase_reader:
             raise HTTPException(status_code=400, detail="No codebase loaded")
-        
+
         content = codebase_reader.get_file_content(path)
         if not content:
             raise HTTPException(status_code=404, detail="File not found")
-        
+
         return {
             "path": path,
             "content": content,
-            "lines": len(content.split('\n'))
+            "lines": len(content.split('\n')),
         }
-    
+
     @app.post("/api/codebase/query")
     async def codebase_query(request: CodebaseQuery):
         """Query the loaded codebase with AI"""
         if not codebase_reader:
             raise HTTPException(status_code=400, detail="No codebase loaded")
-        
+
         try:
-            client = OllamaClient(model=request.model)
-            
+            client = OllamaClient(
+                base_url=config.OLLAMA_BASE_URL,
+                model=request.model or config.OLLAMA_DEFAULT_MODEL,
+            )
+
             if not client.is_running():
                 raise HTTPException(
                     status_code=503,
-                    detail="Ollama is not running"
+                    detail="Ollama is not running",
                 )
-            
+
             summary = codebase_reader.get_summary()
             prompt = f"{request.query}\n\nCodebase context:\n{summary}"
-            
-            result, metadata = client.generate(
+
+            result, _metadata = client.generate(
                 prompt,
-                system="You are a helpful code analysis assistant."
+                system="You are a helpful code analysis assistant.",
             )
-            
+
             return {"result": result}
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     return app
 
 
-def run_server(host: str = "0.0.0.0", port: int = 8000, reload: bool = False):
+def run_server(
+    host: str = config.WEB_HOST,
+    port: int = config.WEB_PORT,
+    reload: bool = False,
+):
     """Run the web server"""
     import uvicorn
-    
+
     app = create_app()
     uvicorn.run(app, host=host, port=port, reload=reload)
 

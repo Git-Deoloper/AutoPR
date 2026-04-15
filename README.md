@@ -22,15 +22,15 @@ pip install localclaw
 
 ### Or Clone and Install Locally
 ```bash
-git clone https://github.com/yourusername/localclaw.git
-cd localclaw
+git clone https://github.com/Git-Deoloper/AutoPR.git
+cd AutoPR
 pip install -e .
 ```
 
 ### Setup
 
 1. **Install Ollama**:
-   - Download from [ollama.ai](https://ollama.ai)
+   - Download from [ollama.com](https://ollama.com)
    - Start it: `ollama serve`
 
 2. **Download a Model**:
@@ -103,6 +103,16 @@ The web server provides REST API endpoints:
 
 Full OpenAPI docs at: http://localhost:8000/docs
 
+## Safety Defaults
+
+- File operations now stay inside the configured workspace root instead of allowing `../` path traversal.
+- Codebase loading is limited to `WORKSPACE_ROOT` so the web API cannot browse arbitrary directories by default.
+- The web server now binds to `127.0.0.1` by default.
+- Browser access is restricted to local origins unless you explicitly expand `WEB_ALLOWED_ORIGINS`.
+- The `/api/codebase/load` endpoint accepts workspace-relative paths only.
+
+If you need network access from another machine or browser origin, update `.env` intentionally rather than using broad wildcard settings.
+
 ## Docker
 
 ### Using Docker Compose (Recommended)
@@ -172,8 +182,13 @@ Edit `.env` file:
 ```
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_DEFAULT_MODEL=llama2
+WEB_HOST=127.0.0.1
 WEB_PORT=8000
+WEB_ALLOWED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
+WORKSPACE_ROOT=.
 ```
+
+When using the web API, pass codebase paths relative to `WORKSPACE_ROOT` (for example `src` or `tests`).
 
 ### Batch Operations
 ```bash
@@ -211,8 +226,8 @@ Error: Model 'llama2' not found
 
 ### Setup Development Environment
 ```bash
-git clone https://github.com/yourusername/localclaw.git
-cd localclaw
+git clone https://github.com/Git-Deoloper/AutoPR.git
+cd AutoPR
 pip install -e ".[dev]"
 pytest
 ```
