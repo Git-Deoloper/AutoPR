@@ -133,7 +133,7 @@ Download: `ollama pull <model-name>`
 
 ## Comparison
 
-| Feature | LocalClaw | Cursor | GitHub Copilot | Claw |
+| Feature | LocalClaw | Cursor | other | Claw |
 |---------|-----------|--------|---|---|
 | **Local/Offline** | ✅ Yes | ❌ No | ❌ No | ❌ No |
 | **API Key Required** | ❌ No | ❌ No | ✅ Yes | ✅ Yes |
