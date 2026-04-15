@@ -180,7 +180,9 @@ Edit `.env` file:
 ```
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_DEFAULT_MODEL=llama2
+WEB_HOST=127.0.0.1
 WEB_PORT=8000
+WEB_ALLOWED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
 ```
 
 ### Batch Operations

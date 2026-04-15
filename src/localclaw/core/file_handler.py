@@ -10,7 +10,9 @@ class FileHandler:
     def __init__(self, base_path: str = "."):
         self.base_path = Path(base_path).resolve()
 
-    def _resolve_path(self, file_path: str, allow_missing: bool = False) -> Path:
+    def _resolve_path(
+        self, file_path: str, allow_missing: bool = False
+    ) -> Path:
         """Resolve a user-supplied path and keep it inside base_path."""
         candidate = Path(file_path)
         if candidate.is_absolute():
@@ -49,7 +51,9 @@ class FileHandler:
         except Exception as e:
             raise IOError(f"Failed to read file {file_path}: {str(e)}")
 
-    def write_file(self, file_path: str, content: str, create_dirs: bool = True) -> bool:
+    def write_file(
+        self, file_path: str, content: str, create_dirs: bool = True
+    ) -> bool:
         """
         Write content to a file
 
@@ -137,9 +141,11 @@ class FileHandler:
         if end is None:
             return lines[start:]
         else:
-            return lines[start : end + 1]
+            return lines[start:end + 1]
 
-    def replace_in_file(self, file_path: str, old_text: str, new_text: str) -> bool:
+    def replace_in_file(
+        self, file_path: str, old_text: str, new_text: str
+    ) -> bool:
         """
         Replace text in a file
 

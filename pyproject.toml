@@ -61,10 +61,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/localclaw"
-Documentation = "https://github.com/yourusername/localclaw"
-Repository = "https://github.com/yourusername/localclaw.git"
-Issues = "https://github.com/yourusername/localclaw/issues"
+Homepage = "https://github.com/Git-Deoloper/AutoPR"
+Documentation = "https://github.com/Git-Deoloper/AutoPR"
+Repository = "https://github.com/Git-Deoloper/AutoPR.git"
+Issues = "https://github.com/Git-Deoloper/AutoPR/issues"
 
 [tool.setuptools]
 packages = ["localclaw"]

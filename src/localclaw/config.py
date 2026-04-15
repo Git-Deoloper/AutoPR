@@ -33,7 +33,9 @@ class Config:
         "WEB_ALLOWED_ORIGINS",
         ["http://localhost:8000", "http://127.0.0.1:8000"],
     )
-    WEB_ALLOW_CREDENTIALS = os.getenv("WEB_ALLOW_CREDENTIALS", "False").lower() == "true"
+    WEB_ALLOW_CREDENTIALS = (
+        os.getenv("WEB_ALLOW_CREDENTIALS", "False").lower() == "true"
+    )
 
     # File reading
     MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", 1048576))  # 1MB

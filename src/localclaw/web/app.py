@@ -138,7 +138,10 @@ def create_app() -> FastAPI:
                     detail="Ollama is not running",
                 )
 
-            result = client.analyze_code(request.code, request.language or "python")
+            result = client.analyze_code(
+                request.code,
+                request.language or "python",
+            )
             return {"result": result}
         except HTTPException:
             raise
@@ -186,7 +189,10 @@ def create_app() -> FastAPI:
                     detail="Ollama is not running",
                 )
 
-            result = client.explain_code(request.code, request.language or "python")
+            result = client.explain_code(
+                request.code,
+                request.language or "python",
+            )
             return {"result": result}
         except HTTPException:
             raise
@@ -228,9 +234,15 @@ def create_app() -> FastAPI:
         try:
             target_path = Path(path).expanduser().resolve()
             if not target_path.exists():
-                raise HTTPException(status_code=404, detail="Path does not exist")
+                raise HTTPException(
+                    status_code=404,
+                    detail="Path does not exist",
+                )
             if not target_path.is_dir():
-                raise HTTPException(status_code=400, detail="Path must be a directory")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Path must be a directory",
+                )
 
             codebase_reader = CodebaseReader(
                 str(target_path),
@@ -265,7 +277,7 @@ def create_app() -> FastAPI:
         if not codebase_reader:
             raise HTTPException(status_code=400, detail="No codebase loaded")
 
-        files = codebase_reader.files[skip : skip + limit]
+        files = codebase_reader.files[skip:skip + limit]
         return {
             "files": [
                 {

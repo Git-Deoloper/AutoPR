@@ -10,8 +10,8 @@ from fastapi.testclient import TestClient
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from localclaw.core.file_handler import FileHandler
-from localclaw.web.app import create_app
+from localclaw.core.file_handler import FileHandler  # noqa: E402
+from localclaw.web.app import create_app  # noqa: E402
 
 
 def test_file_handler_blocks_path_traversal(tmp_path):
@@ -34,8 +34,8 @@ def test_web_app_restricts_default_cors_origin():
         if middleware.cls is CORSMiddleware
     )
 
-    assert cors.options["allow_origins"] != ["*"]
-    assert "http://localhost:8000" in cors.options["allow_origins"]
+    assert cors.kwargs["allow_origins"] != ["*"]
+    assert "http://localhost:8000" in cors.kwargs["allow_origins"]
 
 
 def test_load_codebase_rejects_file_paths(tmp_path):
