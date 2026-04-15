@@ -22,15 +22,15 @@ pip install localclaw
 
 ### Or Clone and Install Locally
 ```bash
-git clone https://github.com/yourusername/localclaw.git
-cd localclaw
+git clone https://github.com/Git-Deoloper/AutoPR.git
+cd AutoPR
 pip install -e .
 ```
 
 ### Setup
 
 1. **Install Ollama**:
-   - Download from [ollama.ai](https://ollama.ai)
+   - Download from [ollama.com](https://ollama.com)
    - Start it: `ollama serve`
 
 2. **Download a Model**:
@@ -102,6 +102,14 @@ The web server provides REST API endpoints:
 - `GET /api/ollama/models` - List available models
 
 Full OpenAPI docs at: http://localhost:8000/docs
+
+## Safety Defaults
+
+- File operations now stay inside the configured workspace root instead of allowing `../` path traversal.
+- The web server now binds to `127.0.0.1` by default.
+- Browser access is restricted to local origins unless you explicitly expand `WEB_ALLOWED_ORIGINS`.
+
+If you need network access from another machine or browser origin, update `.env` intentionally rather than using broad wildcard settings.
 
 ## Docker
 
@@ -211,8 +219,8 @@ Error: Model 'llama2' not found
 
 ### Setup Development Environment
 ```bash
-git clone https://github.com/yourusername/localclaw.git
-cd localclaw
+git clone https://github.com/Git-Deoloper/AutoPR.git
+cd AutoPR
 pip install -e ".[dev]"
 pytest
 ```
