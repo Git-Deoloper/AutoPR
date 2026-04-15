@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from localclaw.config import config  # noqa: E402
 from localclaw.core.file_handler import FileHandler  # noqa: E402
 from localclaw.web.app import create_app  # noqa: E402
 
@@ -42,10 +43,26 @@ def test_load_codebase_rejects_file_paths(tmp_path):
     """Only directories should be accepted as codebase roots."""
     app = create_app()
     client = TestClient(app)
-    target = tmp_path / "single_file.py"
-    target.write_text("print('hello')", encoding="utf-8")
+    target = config.WORKSPACE_ROOT / "README.md"
 
     response = client.post("/api/codebase/load", params={"path": str(target)})
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Path must be a directory"
+
+
+def test_load_codebase_rejects_paths_outside_workspace(tmp_path):
+    """The API should reject paths outside the configured workspace."""
+    app = create_app()
+    client = TestClient(app)
+    outside_dir = tmp_path / "outside-project"
+    outside_dir.mkdir()
+
+    response = client.post(
+        "/api/codebase/load",
+        params={"path": str(outside_dir)},
+    )
+
+    assert response.status_code == 403
+    detail = response.json()["detail"]
+    assert "workspace root" in detail

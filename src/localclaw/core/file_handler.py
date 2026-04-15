@@ -136,7 +136,7 @@ class FileHandler:
             List of lines
         """
         content = self.read_file(file_path)
-        lines = content.split('\n')
+        lines = content.splitlines()
 
         if end is None:
             return lines[start:]

@@ -1,6 +1,7 @@
 """LocalClaw configuration management"""
 
 import os
+from pathlib import Path
 from typing import List
 from dotenv import load_dotenv
 
@@ -36,6 +37,9 @@ class Config:
     WEB_ALLOW_CREDENTIALS = (
         os.getenv("WEB_ALLOW_CREDENTIALS", "False").lower() == "true"
     )
+    WORKSPACE_ROOT = Path(
+        os.getenv("WORKSPACE_ROOT", os.getcwd())
+    ).expanduser().resolve()
 
     # File reading
     MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", 1048576))  # 1MB

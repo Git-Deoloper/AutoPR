@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -85,6 +85,7 @@ def create_app() -> FastAPI:
         return {
             "message": "LocalClaw API",
             "version": "0.1.0",
+            "workspace_root": str(config.WORKSPACE_ROOT),
             "endpoints": {
                 "analyze": "/api/analyze",
                 "fix": "/api/fix",
@@ -238,6 +239,18 @@ def create_app() -> FastAPI:
                     status_code=404,
                     detail="Path does not exist",
                 )
+
+            try:
+                target_path.relative_to(config.WORKSPACE_ROOT)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "Path must stay inside the configured workspace root: "
+                        f"{config.WORKSPACE_ROOT}"
+                    ),
+                ) from exc
+
             if not target_path.is_dir():
                 raise HTTPException(
                     status_code=400,
@@ -272,7 +285,10 @@ def create_app() -> FastAPI:
         return {"summary": codebase_reader.get_summary()}
 
     @app.get("/api/codebase/files")
-    async def codebase_files(skip: int = 0, limit: int = 50):
+    async def codebase_files(
+        skip: int = Query(0, ge=0),
+        limit: int = Query(50, ge=1, le=200),
+    ):
         """Get files from loaded codebase"""
         if not codebase_reader:
             raise HTTPException(status_code=400, detail="No codebase loaded")

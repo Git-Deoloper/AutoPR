@@ -106,6 +106,7 @@ Full OpenAPI docs at: http://localhost:8000/docs
 ## Safety Defaults
 
 - File operations now stay inside the configured workspace root instead of allowing `../` path traversal.
+- Codebase loading is limited to `WORKSPACE_ROOT` so the web API cannot browse arbitrary directories by default.
 - The web server now binds to `127.0.0.1` by default.
 - Browser access is restricted to local origins unless you explicitly expand `WEB_ALLOWED_ORIGINS`.
 
@@ -183,6 +184,7 @@ OLLAMA_DEFAULT_MODEL=llama2
 WEB_HOST=127.0.0.1
 WEB_PORT=8000
 WEB_ALLOWED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
+WORKSPACE_ROOT=.
 ```
 
 ### Batch Operations
