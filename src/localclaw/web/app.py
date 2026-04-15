@@ -81,8 +81,11 @@ def create_app() -> FastAPI:
 
     def resolve_workspace_path(path: str) -> Path:
         """Resolve a relative path inside the configured workspace root."""
-        requested_path = Path(path).expanduser()
-        if requested_path.is_absolute():
+        normalized_path = path.replace("\\", "/").strip()
+        if normalized_path in {"", "."}:
+            return config.WORKSPACE_ROOT
+
+        if normalized_path.startswith(("/", "~")):
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -90,17 +93,33 @@ def create_app() -> FastAPI:
                 ),
             )
 
-        target_path = (config.WORKSPACE_ROOT / requested_path).resolve()
-        try:
-            target_path.relative_to(config.WORKSPACE_ROOT)
-        except ValueError as exc:
+        parts = [
+            part
+            for part in normalized_path.split("/")
+            if part and part != "."
+        ]
+        if parts and parts[0].endswith(":"):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Path must be relative to the configured workspace root"
+                ),
+            )
+
+        if any(part == ".." for part in parts):
             raise HTTPException(
                 status_code=403,
                 detail=(
                     "Path must stay inside the configured workspace root: "
                     f"{config.WORKSPACE_ROOT}"
                 ),
-            ) from exc
+            )
+
+        target_path = config.WORKSPACE_ROOT
+        for part in parts:
+            target_path /= part
+
+        target_path = target_path.resolve()
         return target_path
 
     @app.get("/")
