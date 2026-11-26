@@ -1,86 +1,48 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "localclaw"
-version = "0.1.0"
-description = "A fully local, open-source AI code agent with Ollama - no API keys required"
+version = "0.1.1"
+description = "The local Ollama code assistant maintained in the AutoPR repository"
 readme = "README.md"
-requires-python = ">=3.8"
-license = {text = "MIT"}
-authors = [
-    {name = "LocalClaw Contributors", email = "dev@localclaw.dev"}
-]
-keywords = [
-    "ai",
-    "code",
-    "llm",
-    "ollama",
-    "local",
-    "offline",
-    "code-analysis",
-    "code-generation",
-    "assistant"
-]
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{name = "AutoPR / LocalClaw contributors"}]
+keywords = ["ai", "code", "ollama", "local", "code-analysis"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Operating System :: OS Independent",
-    "Topic :: Software Development :: Libraries",
-    "Topic :: Software Development :: Tools",
+]
+dependencies = [
+    "requests>=2.31.0,<3",
+    "rich>=13.7.0,<16",
+    "fastapi>=0.109.0,<1",
+    "uvicorn>=0.27.0,<1",
+    "pydantic>=2.0.0,<3",
+    "click>=8.1.0,<9",
+    "python-dotenv>=1.0.0,<2",
 ]
 
-dependencies = [
-    "requests>=2.31.0",
-    "rich>=13.7.0",
-    "fastapi>=0.109.0",
-    "uvicorn>=0.27.0",
-    "langchain>=0.1.0",
-    "langchain-community>=0.0.1",
-    "pydantic>=2.0.0",
-    "click>=8.1.0",
-    "python-dotenv>=1.0.0",
-    "aiofiles>=23.2.0",
-]
+[project.scripts]
+localclaw = "localclaw.cli.main:cli"
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.4.0",
-    "pytest-asyncio>=0.21.0",
-    "black>=23.0.0",
-    "isort>=5.12.0",
-    "flake8>=6.1.0",
-    "mypy>=1.7.0",
-]
+dev = ["pytest>=7.4,<10", "httpx>=0.27,<1", "pytest-cov>=4", "build>=1", "black>=23", "isort>=5", "flake8>=6", "mypy>=1.7"]
 
 [project.urls]
 Homepage = "https://github.com/Git-Deoloper/AutoPR"
-Documentation = "https://github.com/Git-Deoloper/AutoPR"
+Documentation = "https://github.com/Git-Deoloper/AutoPR#readme"
 Repository = "https://github.com/Git-Deoloper/AutoPR.git"
 Issues = "https://github.com/Git-Deoloper/AutoPR/issues"
 
-[tool.setuptools]
-packages = ["localclaw"]
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["localclaw*"]
 
-[tool.black]
-line-length = 100
-target-version = ['py38', 'py39', 'py310', 'py311']
-
-[tool.isort]
-profile = "black"
-line_length = 100
-
-[tool.mypy]
-python_version = "3.8"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = true
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

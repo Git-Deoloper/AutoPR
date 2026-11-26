@@ -5,11 +5,17 @@ import json
 from typing import Optional, Dict, List, Tuple
 import time
 
+from localclaw.config import config
+
+
+class OllamaError(RuntimeError):
+    """A model request failed; callers must not treat its text as generated code."""
+
 
 class OllamaClient:
     """Client for interacting with Ollama local LLMs"""
 
-    def __init__(self, base_url: str = "http://localhost:11434", model: str = "llama2"):
+    def __init__(self, base_url: Optional[str] = None, model: Optional[str] = None):
         """
         Initialize Ollama client
 
@@ -17,8 +23,8 @@ class OllamaClient:
             base_url: Base URL for Ollama server (default: localhost:11434)
             model: Model to use (e.g., 'llama2', 'mistral', 'codellama', 'neural-chat')
         """
-        self.base_url = base_url.rstrip('/')
-        self.model = model
+        self.base_url = (base_url or config.OLLAMA_BASE_URL).rstrip('/')
+        self.model = model or config.OLLAMA_DEFAULT_MODEL
         self.api_generate = f"{self.base_url}/api/generate"
         self.api_tags = f"{self.base_url}/api/tags"
         self.api_pull = f"{self.base_url}/api/pull"
@@ -37,8 +43,8 @@ class OllamaClient:
             response = requests.get(self.api_tags, timeout=10)
             if response.status_code == 200:
                 data = response.json()
-                models = [model['name'].split(':')[0] for model in data.get('models', [])]
-                return list(set(models))  # Remove duplicates
+                models = [model['name'] for model in data.get('models', [])]
+                return sorted(set(models))
             return []
         except Exception as e:
             return []
@@ -63,9 +69,15 @@ class OllamaClient:
             
             if response.status_code == 200:
                 # Consume the stream to complete the pull
+                completed = False
                 for line in response.iter_lines():
-                    pass
-                return True
+                    if not line:
+                        continue
+                    data = json.loads(line)
+                    if data.get("error"):
+                        return False
+                    completed = data.get("status") == "success"
+                return completed
             return False
         except Exception as e:
             return False
@@ -95,8 +107,8 @@ class OllamaClient:
             payload = {
                 "model": self.model,
                 "prompt": prompt,
-                "temperature": temperature,
-                "top_p": top_p,
+                "stream": stream,
+                "options": {"temperature": temperature, "top_p": top_p},
             }
 
             if system:
@@ -117,6 +129,8 @@ class OllamaClient:
                 for line in response.iter_lines():
                     if line:
                         data = json.loads(line)
+                        if data.get("error"):
+                            return f"Error: {data['error']}", {"error": True}
                         if "response" in data:
                             full_response += data["response"]
                         if data.get("done", False):
@@ -131,8 +145,11 @@ class OllamaClient:
                                 "eval_duration": data.get("eval_duration"),
                             }
                             return full_response, metadata
+                return "Error: Incomplete response from Ollama", {"error": True}
             else:
                 data = response.json()
+                if data.get("error"):
+                    return f"Error: {data['error']}", {"error": True}
                 return data.get("response", ""), {
                     "model": data.get("model"),
                     "total_duration": data.get("total_duration"),
@@ -150,6 +167,12 @@ class OllamaClient:
             )
         except Exception as e:
             return f"Error: {str(e)}", {"error": True}
+
+    def _generate_text(self, prompt: str, system: str) -> str:
+        result, metadata = self.generate(prompt, system=system)
+        if metadata.get("error"):
+            raise OllamaError(result)
+        return result
 
     def analyze_code(self, code: str, language: str = "python") -> str:
         """
@@ -175,7 +198,7 @@ Code:
 
 Provide a concise analysis."""
 
-        result, _ = self.generate(
+        result = self._generate_text(
             prompt,
             system="You are an expert code reviewer. Provide insightful, constructive feedback."
         )
@@ -205,7 +228,7 @@ Current Code:
 Provide the corrected code only, wrapped in ```{language}``` markers.
 Do not include explanations, only the fixed code."""
 
-        result, _ = self.generate(
+        result = self._generate_text(
             prompt,
             system="You are an expert developer. Provide only the fixed code, no explanations."
         )
@@ -230,13 +253,15 @@ Do not include explanations, only the fixed code."""
 
 Provide a clear, concise explanation suitable for someone learning to code."""
 
-        result, _ = self.generate(
+        result = self._generate_text(
             prompt,
             system="You are an expert educator. Explain code clearly and concisely."
         )
         return result
 
-    def suggest_refactoring(self, code: str, language: str = "python") -> str:
+    def suggest_refactoring(
+        self, code: str, language: str = "python", goals: Optional[str] = None
+    ) -> str:
         """
         Suggest refactoring improvements
 
@@ -260,7 +285,10 @@ Provide:
 
 Focus on readability, performance, and best practices."""
 
-        result, _ = self.generate(
+        if goals:
+            prompt += f"\n\nRequested goals: {goals}"
+
+        result = self._generate_text(
             prompt,
             system="You are a senior software architect. Provide expert refactoring suggestions."
         )

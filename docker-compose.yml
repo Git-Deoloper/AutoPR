@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   ollama:
     image: ollama/ollama:latest
     container_name: localclaw-ollama
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     environment:
       - OLLAMA_DEBUG=false
     volumes:
@@ -20,11 +18,14 @@ services:
       dockerfile: Dockerfile
     container_name: localclaw-web
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
       - WEB_HOST=0.0.0.0
       - WEB_PORT=8000
+      - WORKSPACE_ROOT=/workspace
+    volumes:
+      - ./:/workspace:ro
     depends_on:
       - ollama
     networks:
