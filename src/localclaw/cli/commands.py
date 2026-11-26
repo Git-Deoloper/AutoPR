@@ -1,6 +1,7 @@
 """CLI commands for LocalClaw"""
 
 from pathlib import Path
+import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -12,6 +13,19 @@ import time
 from localclaw.core.codebase import CodebaseReader
 from localclaw.core.file_handler import FileHandler
 from localclaw.llm.ollama_client import OllamaClient
+from localclaw.config import config
+
+
+def _read_code(code_path: str) -> str:
+    """Read one explicitly selected file within the configured workspace."""
+    root = config.WORKSPACE_ROOT.resolve()
+    supplied = Path(code_path).expanduser()
+    absolute = supplied.resolve() if supplied.is_absolute() else (root / supplied).resolve()
+    try:
+        relative = absolute.relative_to(root)
+    except ValueError as exc:
+        raise click.ClickException("File must be inside WORKSPACE_ROOT") from exc
+    return FileHandler(str(root)).read_file(str(relative))
 
 
 def _detect_language(file_path: str) -> str:
@@ -40,12 +54,12 @@ def analyze_cmd(code_path: str, language: str, model: str, console: Console):
     console.print(Panel("[bold cyan]📊 Code Analysis[/bold cyan]", expand=False))
     
     # Read file
-    file_handler = FileHandler()
+    file_handler = FileHandler(str(config.WORKSPACE_ROOT))
     try:
-        code = file_handler.read_file(code_path)
+        code = _read_code(code_path)
     except FileNotFoundError:
         console.print("[red]Error: File not found[/red]")
-        return
+        raise click.ClickException("File not found")
     
     # Detect language if not provided
     if not language:
@@ -60,7 +74,7 @@ def analyze_cmd(code_path: str, language: str, model: str, console: Console):
             "[red]Error: Ollama is not running.[/red]\n"
             "[yellow]Start Ollama with:[/yellow] [bold]ollama serve[/bold]"
         )
-        return
+        raise click.ClickException("Ollama is not running")
     
     # Run analysis
     with console.status(f"[bold green]Analyzing code with {model}..."):
@@ -77,12 +91,12 @@ def fix_cmd(code_path: str, issue: str, language: str, model: str, output: str, 
     console.print(f"[yellow]Issue:[/yellow] {issue}\n")
     
     # Read file
-    file_handler = FileHandler()
+    file_handler = FileHandler(str(config.WORKSPACE_ROOT))
     try:
-        code = file_handler.read_file(code_path)
+        code = _read_code(code_path)
     except FileNotFoundError:
         console.print("[red]Error: File not found[/red]")
-        return
+        raise click.ClickException("File not found")
     
     # Detect language if not provided
     if not language:
@@ -97,7 +111,7 @@ def fix_cmd(code_path: str, issue: str, language: str, model: str, output: str, 
             "[red]Error: Ollama is not running.[/red]\n"
             "[yellow]Start Ollama with:[/yellow] [bold]ollama serve[/bold]"
         )
-        return
+        raise click.ClickException("Ollama is not running")
     
     # Run fix
     with console.status(f"[bold green]Fixing code with {model}..."):
@@ -127,12 +141,12 @@ def explain_cmd(code_path: str, language: str, model: str, console: Console):
     console.print(Panel("[bold cyan]💡 Code Explanation[/bold cyan]", expand=False))
     
     # Read file
-    file_handler = FileHandler()
+    file_handler = FileHandler(str(config.WORKSPACE_ROOT))
     try:
-        code = file_handler.read_file(code_path)
+        code = _read_code(code_path)
     except FileNotFoundError:
         console.print("[red]Error: File not found[/red]")
-        return
+        raise click.ClickException("File not found")
     
     # Limit code length for explanation
     if len(code) > 5000:
@@ -152,7 +166,7 @@ def explain_cmd(code_path: str, language: str, model: str, console: Console):
             "[red]Error: Ollama is not running.[/red]\n"
             "[yellow]Start Ollama with:[/yellow] [bold]ollama serve[/bold]"
         )
-        return
+        raise click.ClickException("Ollama is not running")
     
     # Run explanation
     with console.status(f"[bold green]Explaining code with {model}..."):
@@ -171,12 +185,12 @@ def refactor_cmd(code_path: str, language: str, model: str, goals: str, console:
         console.print(f"[yellow]Goals:[/yellow] {goals}\n")
     
     # Read file
-    file_handler = FileHandler()
+    file_handler = FileHandler(str(config.WORKSPACE_ROOT))
     try:
-        code = file_handler.read_file(code_path)
+        code = _read_code(code_path)
     except FileNotFoundError:
         console.print("[red]Error: File not found[/red]")
-        return
+        raise click.ClickException("File not found")
     
     # Detect language if not provided
     if not language:
@@ -191,11 +205,11 @@ def refactor_cmd(code_path: str, language: str, model: str, goals: str, console:
             "[red]Error: Ollama is not running.[/red]\n"
             "[yellow]Start Ollama with:[/yellow] [bold]ollama serve[/bold]"
         )
-        return
+        raise click.ClickException("Ollama is not running")
     
     # Run refactoring
     with console.status(f"[bold green]Analyzing code with {model}..."):
-        result = client.suggest_refactoring(code, language)
+        result = client.suggest_refactoring(code, language, goals)
     
     console.print("\n[bold]Refactoring Suggestions:[/bold]")
     console.print(result)
@@ -211,14 +225,17 @@ def chat_cmd(codebase_path: str, task: str, model: str, console: Console):
     
     # Read codebase
     try:
-        reader = CodebaseReader(codebase_path)
+        root = config.WORKSPACE_ROOT.resolve()
+        supplied = Path(codebase_path).expanduser()
+        target = supplied.resolve() if supplied.is_absolute() else (root / supplied).resolve()
+        target.relative_to(root)
+        reader = CodebaseReader(str(target), max_file_size=config.MAX_FILE_SIZE)
         console.print(f"[yellow]Reading codebase from {codebase_path}...[/yellow]")
         files = reader.read_codebase()
         stats = reader.get_stats()
         console.print(f"[green]✓ Loaded {stats['total_files']} files, {stats['total_lines']:,} lines[/green]\n")
     except Exception as e:
-        console.print(f"[red]Error reading codebase: {e}[/red]")
-        return
+        raise click.ClickException(f"Error reading codebase: {e}") from e
     
     # Initialize Ollama client
     client = OllamaClient(model=model)
@@ -229,18 +246,20 @@ def chat_cmd(codebase_path: str, task: str, model: str, console: Console):
             "[red]Error: Ollama is not running.[/red]\n"
             "[yellow]Start Ollama with:[/yellow] [bold]ollama serve[/bold]"
         )
-        return
+        raise click.ClickException("Ollama is not running")
     
     # If task provided, run it and exit
     if task:
-        codebase_context = f"Codebase stats:\n{reader.get_summary()}"
+        codebase_context = reader.get_context(task)
         prompt = f"{task}\n\nCodebase context:\n{codebase_context}"
         
         with console.status(f"[bold green]Processing with {model}..."):
-            result, _ = client.generate(
+            result, metadata = client.generate(
                 prompt,
                 system="You are a helpful code analysis assistant. Help the user understand and improve their codebase."
             )
+        if metadata.get("error"):
+            raise click.ClickException(result)
         
         console.print(result)
         return
@@ -284,7 +303,7 @@ def chat_cmd(codebase_path: str, task: str, model: str, console: Console):
         if user_input.lower().startswith("analyze "):
             file_name = user_input[8:].strip()
             file_content = reader.get_file_content(file_name)
-            if file_content:
+            if file_content is not None:
                 with console.status("[bold green]Analyzing file..."):
                     analysis = client.analyze_code(file_content)
                 console.print(f"[bold]Analysis of {file_name}:[/bold]")
@@ -295,9 +314,7 @@ def chat_cmd(codebase_path: str, task: str, model: str, console: Console):
             continue
         
         # Regular query
-        codebase_context = f"Codebase stats:\n{reader.get_summary()}\n\nFirst 10 files:\n"
-        for file_info in files[:10]:
-            codebase_context += f"  - {file_info.relative_path}\n"
+        codebase_context = reader.get_context(user_input)
         
         prompt = f"{user_input}\n\n{codebase_context}"
         
@@ -317,10 +334,10 @@ def setup_cmd(model: str, list_models: bool, console: Console):
     if not client.is_running():
         console.print(
             "[red]Error: Ollama is not running.[/red]\n"
-            "[yellow]Install Ollama from:[/yellow] [bold blue]https://ollama.ai[/bold blue]\n"
+            "[yellow]Install Ollama from:[/yellow] [bold blue]https://ollama.com[/bold blue]\n"
             "[yellow]Then start it with:[/yellow] [bold]ollama serve[/bold]"
         )
-        return
+        raise click.ClickException("Ollama is not running")
     
     console.print(Panel("[bold cyan]🦙 LocalClaw Setup[/bold cyan]", expand=False))
     
@@ -342,4 +359,4 @@ def setup_cmd(model: str, list_models: bool, console: Console):
     if success:
         console.print(f"[green]✓ {model} downloaded successfully![/green]")
     else:
-        console.print(f"[red]Error downloading {model}[/red]")
+        raise click.ClickException(f"Error downloading {model}")

@@ -37,6 +37,9 @@ class Config:
     WEB_ALLOW_CREDENTIALS = (
         os.getenv("WEB_ALLOW_CREDENTIALS", "False").lower() == "true"
     )
+    WEB_ALLOWED_HOSTS = _csv_env(
+        "WEB_ALLOWED_HOSTS", ["localhost", "127.0.0.1", "[::1]"]
+    )
     WORKSPACE_ROOT = Path(
         os.getenv("WORKSPACE_ROOT", os.getcwd())
     ).expanduser().resolve()

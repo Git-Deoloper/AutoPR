@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional, Set, Dict, List
 from dataclasses import dataclass, asdict
 import mimetypes
+from fnmatch import fnmatch
 
 @dataclass
 class FileInfo:
@@ -40,7 +41,7 @@ class CodebaseReader:
 
     # Files to exclude
     IGNORE_FILES = {
-        '.DS_Store', 'Thumbs.db', '.env', '.env.local', '.env.*.local',
+        '.DS_Store', 'Thumbs.db', '.env', '.env.*',
         'package-lock.json', 'yarn.lock', 'poetry.lock', 'Gemfile.lock'
     }
 
@@ -52,7 +53,7 @@ class CodebaseReader:
             root_path: Root directory of the codebase
             max_file_size: Maximum file size to read (default 1MB)
         """
-        self.root_path = Path(root_path)
+        self.root_path = Path(root_path).expanduser().resolve()
         self.max_file_size = max_file_size
         self.files: List[FileInfo] = []
         self._file_count = 0
@@ -71,6 +72,8 @@ class CodebaseReader:
 
         if not self.root_path.exists():
             raise ValueError(f"Path does not exist: {self.root_path}")
+        if not self.root_path.is_dir():
+            raise ValueError(f"Path must be a directory: {self.root_path}")
 
         self._walk_directory(self.root_path)
         return self.files
@@ -78,7 +81,7 @@ class CodebaseReader:
     def _walk_directory(self, directory: Path) -> None:
         """Recursively walk through directory and read code files"""
         try:
-            for item in directory.iterdir():
+            for item in sorted(directory.iterdir()):
                 # Skip symbolic links
                 if item.is_symlink():
                     continue
@@ -98,7 +101,7 @@ class CodebaseReader:
     def _read_file(self, file_path: Path) -> None:
         """Read a single file if it matches criteria"""
         # Skip ignored files
-        if file_path.name in self.IGNORE_FILES:
+        if any(fnmatch(file_path.name, pattern) for pattern in self.IGNORE_FILES):
             self._skipped_files += 1
             return
 
@@ -180,6 +183,33 @@ class CodebaseReader:
             if file_info.relative_path == relative_path:
                 return file_info.content
         return None
+
+    def get_context(self, query: str, max_chars: int = 24000) -> str:
+        """Include bounded source excerpts, preferring paths named in a question.
+
+        This is a deterministic context selection heuristic, not semantic search.
+        It never reads files outside the already loaded codebase.
+        """
+        if max_chars <= 0:
+            return ""
+        terms = {term.strip(".,:?!()[]\"'").lower() for term in query.split()}
+        terms = {term for term in terms if len(term) >= 3}
+        ranked = sorted(
+            self.files,
+            key=lambda file: (
+                -sum(term in file.relative_path.lower() for term in terms),
+                file.relative_path,
+            ),
+        )
+        context = self.get_summary()[:max_chars]
+        for file in ranked:
+            heading = f"\n\nFile: {file.relative_path}\n"
+            room = max_chars - len(context) - len(heading)
+            if room <= 0:
+                break
+            excerpt = file.content[:min(room, 8000)]
+            context += heading + excerpt
+        return context
 
     def get_stats(self) -> Dict:
         """Get statistics about the codebase"""

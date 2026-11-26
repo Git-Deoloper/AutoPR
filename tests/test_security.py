@@ -42,7 +42,7 @@ def test_web_app_restricts_default_cors_origin():
 def test_load_codebase_rejects_file_paths(tmp_path):
     """Only directories should be accepted as codebase roots."""
     app = create_app()
-    client = TestClient(app)
+    client = TestClient(app, base_url="http://localhost")
     target = "README.md"
 
     response = client.post("/api/codebase/load", params={"path": target})
@@ -54,7 +54,7 @@ def test_load_codebase_rejects_file_paths(tmp_path):
 def test_load_codebase_rejects_paths_outside_workspace(tmp_path):
     """The API should reject paths outside the configured workspace."""
     app = create_app()
-    client = TestClient(app)
+    client = TestClient(app, base_url="http://localhost")
 
     response = client.post(
         "/api/codebase/load",
@@ -69,7 +69,7 @@ def test_load_codebase_rejects_paths_outside_workspace(tmp_path):
 def test_load_codebase_rejects_absolute_paths():
     """The API should only accept workspace-relative codebase paths."""
     app = create_app()
-    client = TestClient(app)
+    client = TestClient(app, base_url="http://localhost")
 
     response = client.post(
         "/api/codebase/load",

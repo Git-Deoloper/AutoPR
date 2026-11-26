@@ -5,6 +5,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel
 
 from localclaw.config import config
@@ -16,38 +17,38 @@ from localclaw.llm.ollama_client import OllamaClient
 class CodeInput(BaseModel):
     code: str
     language: Optional[str] = "python"
-    model: Optional[str] = "llama2"
+    model: Optional[str] = None
 
 
 class AnalysisRequest(BaseModel):
     code: str
     language: Optional[str] = "python"
-    model: Optional[str] = "llama2"
+    model: Optional[str] = None
 
 
 class FixRequest(BaseModel):
     code: str
     issue: str
     language: Optional[str] = "python"
-    model: Optional[str] = "llama2"
+    model: Optional[str] = None
 
 
 class ExplanationRequest(BaseModel):
     code: str
     language: Optional[str] = "python"
-    model: Optional[str] = "llama2"
+    model: Optional[str] = None
 
 
 class RefactoringRequest(BaseModel):
     code: str
     language: Optional[str] = "python"
     goals: Optional[str] = None
-    model: Optional[str] = "llama2"
+    model: Optional[str] = None
 
 
 class CodebaseQuery(BaseModel):
     query: str
-    model: Optional[str] = "llama2"
+    model: Optional[str] = None
 
 
 class ChatMessage(BaseModel):
@@ -59,9 +60,9 @@ def create_app() -> FastAPI:
     """Create and configure FastAPI application"""
 
     app = FastAPI(
-        title="LocalClaw",
-        description="A fully local, open-source AI code agent",
-        version="0.1.0",
+        title="AutoPR / LocalClaw",
+        description="A local Ollama code assistant API",
+        version="0.1.1",
     )
 
     # Add CORS middleware
@@ -72,6 +73,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.WEB_ALLOWED_HOSTS)
 
     # Global state
     codebase_reader = None
@@ -120,14 +122,21 @@ def create_app() -> FastAPI:
             target_path /= part
 
         target_path = target_path.resolve()
+        try:
+            target_path.relative_to(config.WORKSPACE_ROOT.resolve())
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail="Path must stay inside the configured workspace root",
+            ) from exc
         return target_path
 
     @app.get("/")
-    async def root():
+    def root():
         """Root endpoint"""
         return {
             "message": "LocalClaw API",
-            "version": "0.1.0",
+            "version": "0.1.1",
             "workspace_root": str(config.WORKSPACE_ROOT),
             "endpoints": {
                 "analyze": "/api/analyze",
@@ -142,7 +151,7 @@ def create_app() -> FastAPI:
     # Ollama endpoints
 
     @app.get("/api/ollama/status")
-    async def ollama_status():
+    def ollama_status():
         """Check if Ollama is running"""
         client = OllamaClient(base_url=config.OLLAMA_BASE_URL)
         return {
@@ -151,7 +160,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/ollama/models")
-    async def ollama_models():
+    def ollama_models():
         """Get available Ollama models"""
         client = OllamaClient(base_url=config.OLLAMA_BASE_URL)
         try:
@@ -168,7 +177,7 @@ def create_app() -> FastAPI:
     # Code analysis endpoints
 
     @app.post("/api/analyze")
-    async def analyze(request: AnalysisRequest):
+    def analyze(request: AnalysisRequest):
         """Analyze code"""
         try:
             client = OllamaClient(
@@ -193,7 +202,7 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
     @app.post("/api/fix")
-    async def fix(request: FixRequest):
+    def fix(request: FixRequest):
         """Fix code"""
         try:
             client = OllamaClient(
@@ -219,7 +228,7 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
     @app.post("/api/explain")
-    async def explain(request: ExplanationRequest):
+    def explain(request: ExplanationRequest):
         """Explain code"""
         try:
             client = OllamaClient(
@@ -244,7 +253,7 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
     @app.post("/api/refactor")
-    async def refactor(request: RefactoringRequest):
+    def refactor(request: RefactoringRequest):
         """Suggest refactoring"""
         try:
             client = OllamaClient(
@@ -261,6 +270,7 @@ def create_app() -> FastAPI:
             result = client.suggest_refactoring(
                 request.code,
                 request.language or "python",
+                request.goals,
             )
             return {"result": result}
         except HTTPException:
@@ -271,7 +281,7 @@ def create_app() -> FastAPI:
     # Codebase endpoints
 
     @app.post("/api/codebase/load")
-    async def load_codebase(path: str):
+    def load_codebase(path: str):
         """Load a codebase"""
         nonlocal codebase_reader, current_codebase_path
 
@@ -289,11 +299,12 @@ def create_app() -> FastAPI:
                     detail="Path must be a directory",
                 )
 
-            codebase_reader = CodebaseReader(
+            next_reader = CodebaseReader(
                 str(target_path),
                 max_file_size=config.MAX_FILE_SIZE,
             )
-            codebase_reader.read_codebase()
+            next_reader.read_codebase()
+            codebase_reader = next_reader
             current_codebase_path = str(target_path)
             stats = codebase_reader.get_stats()
 
@@ -309,7 +320,7 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=400, detail=str(e))
 
     @app.get("/api/codebase/summary")
-    async def codebase_summary():
+    def codebase_summary():
         """Get loaded codebase summary"""
         if not codebase_reader:
             raise HTTPException(status_code=400, detail="No codebase loaded")
@@ -317,7 +328,7 @@ def create_app() -> FastAPI:
         return {"summary": codebase_reader.get_summary()}
 
     @app.get("/api/codebase/files")
-    async def codebase_files(
+    def codebase_files(
         skip: int = Query(0, ge=0),
         limit: int = Query(50, ge=1, le=200),
     ):
@@ -342,13 +353,13 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/codebase/file")
-    async def codebase_file(path: str):
+    def codebase_file(path: str):
         """Get a specific file from codebase"""
         if not codebase_reader:
             raise HTTPException(status_code=400, detail="No codebase loaded")
 
         content = codebase_reader.get_file_content(path)
-        if not content:
+        if content is None:
             raise HTTPException(status_code=404, detail="File not found")
 
         return {
@@ -358,7 +369,7 @@ def create_app() -> FastAPI:
         }
 
     @app.post("/api/codebase/query")
-    async def codebase_query(request: CodebaseQuery):
+    def codebase_query(request: CodebaseQuery):
         """Query the loaded codebase with AI"""
         if not codebase_reader:
             raise HTTPException(status_code=400, detail="No codebase loaded")
@@ -375,13 +386,15 @@ def create_app() -> FastAPI:
                     detail="Ollama is not running",
                 )
 
-            summary = codebase_reader.get_summary()
-            prompt = f"{request.query}\n\nCodebase context:\n{summary}"
+            context = codebase_reader.get_context(request.query)
+            prompt = f"{request.query}\n\nCodebase context:\n{context}"
 
-            result, _metadata = client.generate(
+            result, metadata = client.generate(
                 prompt,
                 system="You are a helpful code analysis assistant.",
             )
+            if metadata.get("error"):
+                raise HTTPException(status_code=502, detail=result)
 
             return {"result": result}
         except HTTPException:
@@ -400,8 +413,10 @@ def run_server(
     """Run the web server"""
     import uvicorn
 
-    app = create_app()
-    uvicorn.run(app, host=host, port=port, reload=reload)
+    uvicorn.run(
+        "localclaw.web.app:create_app", factory=True,
+        host=host, port=port, reload=reload,
+    )
 
 
 if __name__ == "__main__":

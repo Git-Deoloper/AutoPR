@@ -1,299 +1,117 @@
-# LocalClaw - Fully Local AI Code Agent
+# AutoPR / LocalClaw
 
-## 🦾 LocalClaw Features
+A small, open-source code assistant that connects to **your Ollama server**. Analyze a file, ask for a suggested fix, explain code, request refactoring, or query a bounded excerpt of a local codebase.
 
-- ✨ **100% Local & Offline** - No API keys, no cloud, no cost
-- 🚀 **Lightning Fast** - Runs directly on your machine
-- 🔒 **Privacy First** - Your code never leaves your computer
-- 🧠 **Intelligent Analysis** - Uses local LLMs (Llama, Mistral, CodeLlama)
-- 📝 **Code Operations** - Analyze, fix, explain, and refactor code
-- 💻 **Beautiful CLI** - Rich terminal interface with colors and styling
-- 🌐 **Web UI** - FastAPI-based web interface for easy access
-- 🐳 **Docker Ready** - Single `docker-compose up` to get started
-- 📦 **Cross-Platform** - Works on Mac, Windows, and Linux
-- 🎯 **Zero Setup** - `pip install localclaw` or download and run
+**AutoPR is the repository name. LocalClaw is the Python package and CLI command.** Both refer to this project. The package name is preserved for compatibility.
 
-## Quick Start
+## What works
 
-### Install from PyPI (Coming Soon)
-```bash
-pip install localclaw
-```
+- File analysis, explanations, suggested fixes, and refactoring through the CLI.
+- Codebase scanning and a simple question interface with bounded source context.
+- A FastAPI JSON API with interactive documentation at `/docs`.
+- Local model selection through Ollama, including full model tags.
+- Workspace-constrained file access and loopback server defaults.
 
-### Or Clone and Install Locally
+This is an **alpha code assistant**. It does not open pull requests, execute generated code, or automatically verify model suggestions. The web server provides an API and Swagger documentation; a separate visual editor is not included.
+
+## Quick start
+
+Requirements: Python **3.10+**, [Ollama](https://ollama.com/), and enough memory/disk for the model you choose. Installation and the initial model download need network access. Inference can run offline afterward when Ollama and the selected model are local. Hardware, electricity, and any remote service you configure have their own costs.
+
 ```bash
 git clone https://github.com/Git-Deoloper/AutoPR.git
 cd AutoPR
-pip install -e .
+python -m venv .venv
+source .venv/bin/activate
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+python -m pip install -e .
 ```
 
-### Setup
+In a separate terminal, start Ollama if it is not already running:
 
-1. **Install Ollama**:
-   - Download from [ollama.com](https://ollama.com)
-   - Start it: `ollama serve`
-
-2. **Download a Model**:
-   ```bash
-   localclaw setup -m llama2
-   # Or: ollama pull mistral
-   # Or: ollama pull codellama
-   ```
-
-3. **Start Using**:
-   ```bash
-   localclaw analyze path/to/your/code.py
-   ```
-
-## Usage Examples
-
-### 🔍 Analyze Code
 ```bash
-localclaw analyze auth.py
-```
-
-### 🔧 Fix Issues
-```bash
-localclaw fix auth.py "Add authentication validation"
-```
-
-### 💡 Explain Code
-```bash
-localclaw explain complex_algorithm.py
-```
-
-### ♻️ Refactor Code
-```bash
-localclaw refactor app.py --goals "improve performance and readability"
-```
-
-### 💬 Interactive Chat with Codebase
-```bash
-localclaw chat ./my-project/
-```
-
-Then ask questions:
-```
-You: What does the auth module do?
-Assistant: The auth module handles user authentication...
-
-You: Find security issues
-Assistant: Found 3 potential issues:
-1. SQL injection vulnerability in login...
-```
-
-### 🌐 Web UI
-```bash
-python -m localclaw.web.server
-# Open http://localhost:8000
-```
-
-## API Endpoints
-
-The web server provides REST API endpoints:
-
-- `POST /api/analyze` - Analyze code
-- `POST /api/fix` - Fix code based on issue description
-- `POST /api/explain` - Explain what code does
-- `POST /api/refactor` - Suggest refactoring improvements
-- `POST /api/codebase/load` - Load a codebase for analysis
-- `POST /api/codebase/query` - Query loaded codebase with AI
-- `GET /api/ollama/status` - Check Ollama status
-- `GET /api/ollama/models` - List available models
-
-Full OpenAPI docs at: http://localhost:8000/docs
-
-## Safety Defaults
-
-- File operations now stay inside the configured workspace root instead of allowing `../` path traversal.
-- Codebase loading is limited to `WORKSPACE_ROOT` so the web API cannot browse arbitrary directories by default.
-- The web server now binds to `127.0.0.1` by default.
-- Browser access is restricted to local origins unless you explicitly expand `WEB_ALLOWED_ORIGINS`.
-- The `/api/codebase/load` endpoint accepts workspace-relative paths only.
-
-If you need network access from another machine or browser origin, update `.env` intentionally rather than using broad wildcard settings.
-
-## Docker
-
-### Using Docker Compose (Recommended)
-```bash
-docker-compose up
-# Access at http://localhost:8000
-```
-
-### Or Build and Run Manually
-```bash
-docker build -t localclaw .
-docker run -p 8000:8000 -p 11434:11434 localclaw
-```
-
-## Available Models
-
-LocalClaw works with any Ollama model. Popular choices:
-
-| Model | Size | Speed | Quality | Use Case |
-|-------|------|-------|---------|----------|
-| **llama2** | 7B | Fast | Good | General purpose |
-| **mistral** | 7B | Very Fast | Good | Smaller codebase |
-| **codellama** | 7B | Fast | Excellent | Code-specific |
-| **neural-chat** | 7B | Fast | Good | Conversations |
-| **llama2:13b** | 13B | Medium | Better | Larger projects |
-
-Download: `ollama pull <model-name>`
-
-## Comparison
-
-| Feature | LocalClaw | Cursor | other | Claw |
-|---------|-----------|--------|---|---|
-| **Local/Offline** | ✅ Yes | ❌ No | ❌ No | ❌ No |
-| **API Key Required** | ❌ No | ❌ No | ✅ Yes | ✅ Yes |
-| **Cost** | 🆓 Free | 💵 $20/mo | 💵 $10/mo | 💵 Paid |
-| **Open Source** | ✅ Yes | ❌ No | ❌ No | ❌ No |
-| **Code Privacy** | ✅ 100% | ❌ Cloud | ❌ Cloud | ❌ Cloud |
-| **CLI Interface** | ✅ Yes | ❌ No | ❌ No | ❌ No |
-| **Web UI** | ✅ Yes | ✅ VS Code | ✅ VS Code | ✅ VS Code |
-| **Codebase Analysis** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
-
-## System Requirements
-
-- **CPU**: Any modern processor (faster = better)
-- **RAM**: 8GB minimum (16GB+ recommended)
-- **Disk**: 10GB+ for models
-- **OS**: macOS, Linux, Windows
-
-### M1/M2 Mac Support
-LocalClaw and Ollama have excellent Apple Silicon support:
-```bash
-# Ollama automatically uses GPU acceleration on M1/M2
 ollama serve
 ```
 
-## Advanced Usage
+Download a model supported by your installation; `llama2` remains the compatibility default:
 
-### Custom Models
 ```bash
-# Run with specific model
-localclaw analyze code.py -m mistral
-localclaw chat ./project -m codellama
+localclaw setup --model llama2
+localclaw setup --list-models
+localclaw analyze src/localclaw/core/file_handler.py --model llama2
 ```
 
-### Adjust Settings
-Edit `.env` file:
-```
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_DEFAULT_MODEL=llama2
-WEB_HOST=127.0.0.1
-WEB_PORT=8000
-WEB_ALLOWED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
-WORKSPACE_ROOT=.
-```
+Install from this repository. A PyPI release under the `localclaw` name is **not claimed or required** by these instructions.
 
-When using the web API, pass codebase paths relative to `WORKSPACE_ROOT` (for example `src` or `tests`).
+## Commands
 
-### Batch Operations
 ```bash
-# Analyze all Python files
-for file in $(find . -name "*.py"); do
-  localclaw analyze "$file"
-done
+localclaw analyze src/localclaw/core/file_handler.py
+localclaw explain src/localclaw/core/file_handler.py
+localclaw fix src/localclaw/core/file_handler.py "Explain how to handle invalid UTF-8"
+localclaw refactor src/localclaw/core/file_handler.py --goals "Improve error messages"
+localclaw chat . "Explain the file_handler.py workspace boundary"
+localclaw chat .
 ```
 
-## Troubleshooting
+`fix` prints a suggestion. `--output suggested.py` writes it to the selected workspace-relative file and can replace an existing file, so use a separate filename and review the diff. Model errors are reported as errors rather than saved as generated code.
 
-### Ollama Connection Error
-```
-Error: Cannot connect to Ollama. Make sure Ollama is running: `ollama serve`
-```
-**Solution**: Start Ollama in a new terminal: `ollama serve`
+Chat uses a deterministic, size-limited source selection heuristic. It favors filenames mentioned in the question; it does not provide a complete semantic index or guarantee that every relevant file fits. In interactive mode, `stats`, `files`, and `analyze <relative-path>` are available.
 
-### Model Not Found
-```
-Error: Model 'llama2' not found
-```
-**Solution**: Download the model: `ollama pull llama2`
+## Configuration
 
-### Out of Memory
-**Solution**: Use smaller model: `ollama pull mistral`
+Copy `.env.example` to `.env` and edit it, or set environment variables:
 
-### Slow Response
-**Cause**: Using CPU instead of GPU
-**Solution**: 
-- Ensure Ollama is using GPU acceleration
-- Use a smaller model (7B instead of 13B)
-- Close other applications
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server used by both CLI and API |
+| `OLLAMA_DEFAULT_MODEL` | `llama2` | Used unless a command/request supplies a model |
+| `WORKSPACE_ROOT` | Current working directory | Boundary for file operations and API codebase loading |
+| `MAX_FILE_SIZE` | `1048576` | Maximum size of an individual scanned codebase file |
+| `WEB_HOST` / `WEB_PORT` | `127.0.0.1` / `8000` | API listener |
+| `WEB_ALLOWED_ORIGINS` | Localhost origins on port 8000 | Browser CORS allowlist |
+| `WEB_ALLOWED_HOSTS` | `localhost,127.0.0.1,[::1]` | Accepted HTTP Host values |
 
-## Development
+A remote `OLLAMA_BASE_URL` sends selected prompts and code to that server. Keep the default local endpoint for local inference. Codebase scanning skips symlinks, dependency/build folders, and `.env` files; review your workspace for other confidential files before asking a model to process it.
 
-### Setup Development Environment
+## API
+
 ```bash
-git clone https://github.com/Git-Deoloper/AutoPR.git
-cd AutoPR
-pip install -e ".[dev]"
-pytest
+python -m localclaw.web.server
 ```
 
-### Run Tests
+Open **http://127.0.0.1:8000/docs**. For example:
+
 ```bash
-pytest
-pytest -v
-pytest --cov=src/localclaw
+curl http://127.0.0.1:8000/api/explain \
+  -H 'Content-Type: application/json' \
+  -d '{"code":"print(1 + 1)","language":"python"}'
 ```
 
-### Format & Lint
+See [API.md](API.md) for all routes. Codebase state belongs to one server process; this is a single-user development tool with no account/authentication system. Keep it on loopback. If changing the listener, provide your own access controls and configure the host/origin allowlists intentionally.
+
+## Docker
+
 ```bash
-black src/
-isort src/
-flake8 src/
-mypy src/
+docker compose up --build
+# In another terminal, download the model into the Ollama service:
+docker compose exec ollama ollama pull llama2
 ```
 
-## Contributing
+The Compose configuration publishes ports on `127.0.0.1` and mounts this checkout read-only as `/workspace`. The Ollama model volume persists downloads. To inspect a different project, intentionally change that read-only mount. Docker and a live Ollama model are not required for unit tests.
 
-We welcome contributions! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+## Development and verification
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+```bash
+python -m pip install -e '.[dev]'
+python -m pytest -q
+python -m build
+localclaw --help
+```
 
-## Roadmap
+Tests exercise the Ollama request contract with mock responses, file boundaries, API behavior, and CLI errors. A successful unit test run does not measure model quality. Live inference also depends on the user's Ollama version, model, and hardware.
 
-- [ ] VS Code Extension
-- [ ] Jupyter Notebook Integration
-- [ ] Git Integration (auto-analyze PRs)
-- [ ] Fine-tuning Support
-- [ ] Team/Multi-user Support
-- [ ] Better Web UI with Monaco Editor
-- [ ] Model Comparison Tool
-- [ ] Benchmark Suite
-
-## License
-
-MIT - See [LICENSE](LICENSE) for details
-
-## Support
-
-- 📖 [Documentation](https://github.com/yourusername/localclaw)
-- 🐛 [Issue Tracker](https://github.com/yourusername/localclaw/issues)
-- 💬 [Discussions](https://github.com/yourusername/localclaw/discussions)
-- 📧 Email: support@localclaw.dev
-
----
-
-**No API key. No cloud. No cost.**
-
-Built with ❤️ for developers who value privacy and control.
-
-## Acknowledgments
-
-- [Ollama](https://ollama.ai) - Local LLM framework
-- [LangChain](https://langchain.com) - LLM utilities
-- [FastAPI](https://fastapi.tiangolo.com) - Modern web framework
-- [Rich](https://rich.readthedocs.io) - Beautiful terminal styling
-- [Meta's Llama](https://llama.meta.com) - Open source models
-
----
-
-Give us a ⭐ if you find LocalClaw useful!
+- [Architecture](ARCHITECTURE.md)
+- [Contribution guide](CONTRIBUTING.md)
+- [Report a problem](https://github.com/Git-Deoloper/AutoPR/issues)
+- [MIT license](LICENSE)
